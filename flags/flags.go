@@ -17,7 +17,7 @@ func init(){
  flag.StringVar(&SubTitlePath,"subtitlepath","","path to subtitle files")
  flag.StringVar(&Suffix,"suffix","S0*E0*","example Seoson01Episode01 = Season0*Episode0*")
  flag.StringVar(&Name,"name","","movie name")
- flag.StringVar(&Destination,"d","movie path","destination folder to put both movie files and subtitle")
+ flag.StringVar(&Destination,"d","","destination folder to put both movie files and subtitle")
  flag.StringVar(&Season,"s","1","movie season")
  flag.BoolVar(&C,"c",false,"move files or copy")
  flag.Parse()

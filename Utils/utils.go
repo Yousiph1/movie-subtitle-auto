@@ -5,6 +5,7 @@ import (
   "errors"
   "strings"
   "fmt"
+  "io"
   "io/ioutil"
   "log"
   "strconv"
@@ -35,6 +36,12 @@ func isVideo(s string) bool {
  return false
 }
 
+func exitOnError(err error, msg string) {
+  if err != nil {
+    log.Fatal(err,msg)
+  }
+}
+
 func isValidDirectory(s,t string) error {
     _, err := os.Open(s)
    if err != nil {
@@ -52,7 +59,8 @@ func isValidDirectory(s,t string) error {
 
 
 func getPrefix(prefix,name,s string) string {
-   if strings.Contains(prefix,"*") && len(strings.Split(prefix,"*")) == 2 {
+   log.Println(strings.Split(prefix,"*"))
+   if len(strings.Split(prefix,"*")) == 2 {
      arr := strings.Split(prefix,"*")
      sPrefix, ePrefix := arr[0],arr[1]
      return fmt.Sprintf("%s-%s%s%s",name,sPrefix,s,ePrefix)
@@ -67,6 +75,26 @@ func rename(pathPrefix, oldName,newName string) error {
       err := os.Rename(oldName,newName)
       return err
 }
+func convertToMB(n int64) string{
+  return fmt.Sprintf("%v %s",n/1000000,"MB")
+}
+
+func copy(distination,dir,oldName,newName string) {
+        extName := path.Ext(oldName)
+        destinationFile := path.Join(distination,newName + extName)
+        file, err := os.Create(destinationFile)
+        defer file.Close()
+        src := path.Join(dir,oldName)
+        srcFile, err := os.Open(src)
+        exitOnError(err,"could open file: " +oldName)
+        defer srcFile.Close()
+        exitOnError(err,"could't create file in the destination folder")
+        nCount, err := io.Copy(file,srcFile)
+        exitOnError(err,"error copying file: " + oldName)
+        inMB := convertToMB(nCount)
+        log.Println(oldName,"copied to destination folder. ",inMB)
+}
+
 
 func renameSub(pathPrefix, moviepath, oldName, newName string) error {
         extName := path.Ext(oldName)
@@ -86,11 +114,13 @@ func HandleMovies(){
    prefix := getPrefix(flags.Suffix,flags.Name, flags.Season)
    for _ , movie := range movies {
        if isVideo(movie.Name()) && !movie.IsDir() {
-            nprefix := prefix + strconv.Itoa(i)
-           err := rename(flags.MoviePath,movie.Name(), nprefix)
-           if err != nil {
-             log.Fatalf("could not rename movie: %s",movie.Name())
-           }
+            newName := prefix + strconv.Itoa(i)
+            if flags.C && flags.Destination != "" {
+                copy(flags.Destination, flags.MoviePath,movie.Name(), newName)
+            }else {
+              err := rename(flags.MoviePath, movie.Name(), newName)
+              exitOnError(err,"could not rename movie: " + movie.Name())
+            }
            i++
        }else {
          log.Println(movie.Name(),"is not a valid video file and will be skipped")
@@ -107,11 +137,13 @@ func HandleSubTitles()  {
   i := 1;
   prefix := getPrefix(flags.Suffix,flags.Name, flags.Season)
   for _, subtitle := range subtitles {
-    if isSubTitle(subtitle.Name()) && ! subtitle.IsDir() {
-      nprefix := prefix + strconv.Itoa(i)
-      err := renameSub(flags.SubTitlePath,flags.MoviePath,subtitle.Name(), nprefix)
-      if err != nil {
-        log.Fatalf("could not rename subtitle: %s",subtitle.Name())
+    if isSubTitle(subtitle.Name()) && !subtitle.IsDir() {
+      newName := prefix + strconv.Itoa(i)
+      if flags.C && flags.Destination != "" {
+            copy(flags.Destination, flags.SubTitlePath, subtitle.Name(), newName)
+      }else {
+        err := renameSub(flags.SubTitlePath,flags.MoviePath,subtitle.Name(),newName)
+        exitOnError(err,"could not rename subtitle: "+subtitle.Name())
       }
       i++
     }else {
